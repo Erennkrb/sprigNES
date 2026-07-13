@@ -110,9 +110,9 @@ static const uint8_t BTN_PINS[8] = {5, 7, 6, 8, 12, 14, 13, 15};
 #endif
 
 // Set to 1 to show red/green/blue full-screen bars for ~1.5 s each at boot
-// (a channel-order sanity check), then continue to the game.
+// (a channel-order sanity check), then continue to the game. Off for release.
 #ifndef SPRIG_COLOR_TEST
-#define SPRIG_COLOR_TEST 1
+#define SPRIG_COLOR_TEST 0
 #endif
 
 // ------------------------------------------------------------------
