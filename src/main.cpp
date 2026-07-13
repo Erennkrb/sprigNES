@@ -99,13 +99,23 @@ static const uint8_t BTN_PINS[8] = {5, 7, 6, 8, 12, 14, 13, 15};
 #define ST7735_GMCTRP1 0xE0
 #define ST7735_GMCTRN1 0xE1
 
-// MADCTL: MV = landscape raster order. The Sprig panel is BGR (0x08),
-// per the stock firmware. If your picture comes out upside down, build
-// with -DSPRIG_ROTATE_180=1.
-#if SPRIG_ROTATE_180
-#define MADCTL_VAL (0x20 | 0x80 | 0x08) /* MV | MY | BGR */
+// MADCTL: MV = landscape raster order. We feed the panel standard RGB565, so
+// the RGB/BGR bit (D3, 0x08) must be CLEAR — with it set (as the stock JS
+// firmware used, because its framebuffer is BGR) red and blue come out
+// swapped, e.g. Mario's red logo renders blue. Build -DSPRIG_BGR=1 only if a
+// particular panel revision actually needs BGR. Upside down? -DSPRIG_ROTATE_180=1.
+#ifndef SPRIG_BGR
+#define SPRIG_BGR 0
+#endif
+#if SPRIG_BGR
+#define MADCTL_COLOR 0x08
 #else
-#define MADCTL_VAL (0x20 | 0x40 | 0x08) /* MV | MX | BGR */
+#define MADCTL_COLOR 0x00
+#endif
+#if SPRIG_ROTATE_180
+#define MADCTL_VAL (0x20 | 0x80 | MADCTL_COLOR) /* MV | MY */
+#else
+#define MADCTL_VAL (0x20 | 0x40 | MADCTL_COLOR) /* MV | MX */
 #endif
 
 // ------------------------------------------------------------------
