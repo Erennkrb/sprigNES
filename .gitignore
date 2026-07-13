@@ -15,3 +15,6 @@ flasher/sprignes_firmware.uf2
 
 # Local editor/agent settings
 .claude/
+
+# Local release staging
+release/

@@ -451,6 +451,12 @@ void __not_in_flash_func(InfoNES_LoadFrame)() {
 
     pump_audio();
 
+    // Heartbeat on USB serial (~every 10 s) so a connected PC can see that
+    // emulation is alive.
+    static uint32_t frames;
+    if ((++frames % 600) == 0)
+        printf("sprigNES: running, frame %u\n", (unsigned)frames);
+
     // Pace to ~60 fps.
     static absolute_time_t next;
     if (is_nil_time(next))
@@ -524,17 +530,34 @@ static bool parse_rom(const uint8_t *f) {
     return true;
 }
 
-int InfoNES_Menu() {
-    if (!parse_rom(nes_rom)) {
-        printf("Embedded ROM is not a valid .nes file!\n");
-        lcd_fill(P(0x7c00) /* red */);
-        gpio_init(PIN_LED_L);
-        gpio_set_dir(PIN_LED_L, GPIO_OUT);
-        while (true) {
-            gpio_xor_mask(1u << PIN_LED_L);
-            sleep_ms(250);
+// Shown when there is no valid ROM at ROM_FLASH_OFFSET. Paints three vertical
+// bands — encoded as RED | GREEN | BLUE left-to-right — and reports the flash
+// contents over USB serial once a second. (The band order doubles as a display
+// channel-order test: if you see blue on the LEFT, the panel wants R/B swapped.)
+static void rom_error_screen(void) {
+    lcd_begin_frame();
+    for (int y = 0; y < SCREEN_H; ++y) {
+        for (int x = 0; x < SCREEN_W; ++x) {
+            uint16_t c = (x < 53) ? 0xF800 : (x < 107) ? 0x07E0 : 0x001F;
+            const uint8_t px[2] = {(uint8_t)(c >> 8), (uint8_t)c};
+            spi_write_blocking(TFT_SPI, px, 2);
         }
     }
+    gpio_init(PIN_LED_L);
+    gpio_set_dir(PIN_LED_L, GPIO_OUT);
+    while (true) {
+        printf("sprigNES: no valid ROM at %p. flash bytes: %02x %02x %02x %02x "
+               "(expected 4e 45 53 1a) - flash a game with SprigNESFlasher\n",
+               (const void *)nes_rom, nes_rom[0], nes_rom[1], nes_rom[2],
+               nes_rom[3]);
+        gpio_xor_mask(1u << PIN_LED_L);
+        sleep_ms(1000);
+    }
+}
+
+int InfoNES_Menu() {
+    if (!parse_rom(nes_rom))
+        rom_error_screen();  // never returns
     if (InfoNES_Reset() < 0) {
         printf("InfoNES_Reset failed\n");
         return -1;
