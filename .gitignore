@@ -1,0 +1,17 @@
+# Vendored toolchain — fetch with scripts\fetch-tools.ps1
+tools/
+
+# Build output
+build/
+
+# ROMs are never committed (bring your own)
+roms/
+*.nes
+
+# Flasher intermediate artifacts
+flasher/flasher_res.o
+flasher/sprignes_firmware.uf2
+*.uf2
+
+# Local editor/agent settings
+.claude/

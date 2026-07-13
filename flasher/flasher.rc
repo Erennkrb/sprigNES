@@ -1,0 +1,3 @@
+/* Embeds the firmware-only UF2 into the flasher executable.
+ * build-flasher.ps1 copies the freshly-built firmware here first. */
+FIRMWARE RCDATA "sprignes_firmware.uf2"
