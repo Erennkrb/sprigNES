@@ -2,6 +2,8 @@
 
 **Turn a [Hack Club Sprig](https://sprig.hackclub.com/) into a pocket NES.**
 
+![sprigNES running Super Mario Bros. on a Hack Club Sprig](docs/sprig-mario.png)
+
 sprigNES is custom firmware that runs NES games on the Sprig's exact hardware —
 160×128 screen, its buttons, its speaker — with no hardware modification. A
 one-click Windows flasher lets you put any `.nes` ROM on the board; no
