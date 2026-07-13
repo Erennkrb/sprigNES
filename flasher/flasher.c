@@ -110,7 +110,12 @@ static const uint8_t *firmware_uf2(uint32_t *len) {
     return (const uint8_t *)LockResource(g);
 }
 
-/* Merge firmware UF2 + ROM into one UF2 image. Caller frees. */
+/* Merge firmware UF2 + ROM into one UF2 image. Caller frees.
+ *
+ * The RP2040 boot ROM only accepts UF2s that form one CONTIGUOUS image:
+ * each block's target address must equal base + blockNo*256, or the block
+ * is silently ignored. So the gap between the end of the firmware and the
+ * fixed ROM offset is filled with 0xFF padding blocks. */
 static uint8_t *build_merged(const uint8_t *rom, uint32_t romlen,
                              uint32_t *outlen, char *err, size_t errlen) {
     uint32_t fwlen = 0;
@@ -121,44 +126,60 @@ static uint8_t *build_merged(const uint8_t *rom, uint32_t romlen,
     }
 
     uint32_t nfw = fwlen / 512;
-    uint32_t nrom = (romlen + 255) / 256;
-    uint32_t total = nfw + nrom;
-
-    Uf2Block *out = calloc(total, sizeof(Uf2Block));
-
+    uint32_t base = 0;
     for (uint32_t i = 0; i < nfw; ++i) {
-        memcpy(&out[i], fw + (size_t)i * 512, 512);
-        if (out[i].magic0 != UF2_MAGIC0 || out[i].magic1 != UF2_MAGIC1 ||
-            out[i].magicEnd != UF2_MAGIC_END) {
-            free(out);
+        const Uf2Block *b = (const Uf2Block *)(fw + (size_t)i * 512);
+        if (b->magic0 != UF2_MAGIC0 || b->magic1 != UF2_MAGIC1 ||
+            b->magicEnd != UF2_MAGIC_END || b->size != 256) {
             snprintf(err, errlen, "Embedded firmware UF2 is corrupt (block %u).", i);
             return NULL;
         }
-        if (out[i].addr + out[i].size > ROM_FLASH_ADDR) {
-            free(out);
+        if (i == 0)
+            base = b->addr;
+        if (b->addr != base + i * 256) {
+            snprintf(err, errlen,
+                     "Embedded firmware UF2 is not contiguous (block %u).", i);
+            return NULL;
+        }
+        if (b->addr + b->size > ROM_FLASH_ADDR) {
             snprintf(err, errlen,
                      "Firmware overlaps the ROM area - rebuild with a larger "
                      "ROM_FLASH_OFFSET.");
             return NULL;
         }
+    }
+
+    uint32_t fw_end = base + nfw * 256;
+    uint32_t npad = (ROM_FLASH_ADDR - fw_end) / 256;
+    uint32_t nrom = (romlen + 255) / 256;
+    uint32_t total = nfw + npad + nrom;
+
+    Uf2Block *out = calloc(total, sizeof(Uf2Block));
+
+    /* firmware, renumbered */
+    for (uint32_t i = 0; i < nfw; ++i) {
+        memcpy(&out[i], fw + (size_t)i * 512, 512);
         out[i].blockNo = i;
         out[i].numBlocks = total;
     }
 
-    for (uint32_t j = 0; j < nrom; ++j) {
+    /* 0xFF padding + ROM, one contiguous run of addresses */
+    for (uint32_t j = 0; j < npad + nrom; ++j) {
         Uf2Block *b = &out[nfw + j];
         b->magic0 = UF2_MAGIC0;
         b->magic1 = UF2_MAGIC1;
         b->flags = UF2_FLAG_FAMILY;
-        b->addr = ROM_FLASH_ADDR + j * 256;
+        b->addr = fw_end + j * 256;
         b->size = 256;
         b->blockNo = nfw + j;
         b->numBlocks = total;
         b->family = UF2_FAMILY_RP2040;
-        uint32_t off = j * 256;
-        uint32_t n = (romlen - off > 256) ? 256 : romlen - off;
         memset(b->data, 0xFF, 256);
-        memcpy(b->data, rom + off, n);
+        if (j >= npad) {
+            uint32_t off = (j - npad) * 256;
+            uint32_t n = (romlen - off > 256) ? 256 : romlen - off;
+            memcpy(b->data, rom + off, n);
+        }
         b->magicEnd = UF2_MAGIC_END;
     }
 
