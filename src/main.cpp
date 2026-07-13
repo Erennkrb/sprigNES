@@ -99,34 +99,34 @@ static const uint8_t BTN_PINS[8] = {5, 7, 6, 8, 12, 14, 13, 15};
 #define ST7735_GMCTRP1 0xE0
 #define ST7735_GMCTRN1 0xE1
 
-// MADCTL: MV = landscape raster order. We feed the panel standard RGB565, so
-// the RGB/BGR bit (D3, 0x08) must be CLEAR — with it set (as the stock JS
-// firmware used, because its framebuffer is BGR) red and blue come out
-// swapped, e.g. Mario's red logo renders blue. Build -DSPRIG_BGR=1 only if a
-// particular panel revision actually needs BGR. Upside down? -DSPRIG_ROTATE_180=1.
-#ifndef SPRIG_BGR
-#define SPRIG_BGR 0
-#endif
-#if SPRIG_BGR
-#define MADCTL_COLOR 0x08
-#else
-#define MADCTL_COLOR 0x00
-#endif
+// MADCTL: MV = landscape raster order, MX/MY = axis flip. This ST7735 panel is
+// physically BGR and IGNORES the RGB/BGR select bit (D3) — so the byte order
+// can't be fixed in the register; we emit BGR565 pixel data instead (see the
+// palette macro below). Upside down on some unit? build -DSPRIG_ROTATE_180=1.
 #if SPRIG_ROTATE_180
-#define MADCTL_VAL (0x20 | 0x80 | MADCTL_COLOR) /* MV | MY */
+#define MADCTL_VAL (0x20 | 0x80) /* MV | MY */
 #else
-#define MADCTL_VAL (0x20 | 0x40 | MADCTL_COLOR) /* MV | MX */
+#define MADCTL_VAL (0x20 | 0x40) /* MV | MX */
+#endif
+
+// Set to 1 to show red/green/blue full-screen bars for ~1.5 s each at boot
+// (a channel-order sanity check), then continue to the game.
+#ifndef SPRIG_COLOR_TEST
+#define SPRIG_COLOR_TEST 1
 #endif
 
 // ------------------------------------------------------------------
-// NES palette in RGB565 (bytes are swapped for the SPI wire only when
-// a scanline is emitted, so pixels can be blended in linear 565 first).
-// Base values are the standard InfoNES RGB555 palette.
+// NES palette in BGR565 — blue in the high bits, red in the low bits — because
+// the Sprig panel is BGR and ignores the MADCTL RGB/BGR bit. Base values are
+// the standard InfoNES RGB555 palette (0RRRRRGGGGGBBBBB). Bytes are swapped for
+// the SPI wire only at scanline-emit time, so blending stays in linear 565.
 // ------------------------------------------------------------------
 
 #define G6(v) (((((v) >> 5) & 31) << 1) | ((((v) >> 5) & 31) >> 4))
-#define RGB565(v) (uint16_t)(((((v) >> 10) & 31) << 11) | (G6(v) << 5) | ((v) & 31))
-#define P(v) RGB565(v)
+#define R5(v) ((v) & 31)          /* low bits carry RED for a BGR panel */
+#define B5(v) (((v) >> 10) & 31)  /* high bits carry BLUE */
+#define BGR565(v) (uint16_t)((B5(v) << 11) | (G6(v) << 5) | R5(v))
+#define P(v) BGR565(v)
 
 const WORD __not_in_flash("nespal") NesPalette[64] = {
     P(0x39ce), P(0x1071), P(0x0015), P(0x2013), P(0x440e), P(0x5402), P(0x5000), P(0x3c20),
@@ -206,6 +206,17 @@ static void lcd_fill(uint16_t color) {
     lcd_begin_frame();
     for (int i = 0; i < SCREEN_W * SCREEN_H; ++i)
         spi_write_blocking(TFT_SPI, px, 2);
+}
+
+// Full-screen RED, GREEN, BLUE for ~1.5 s each (BGR565-encoded, matching the
+// game's pixel path). If the panel is wired as we assume you'll see red, then
+// green, then blue, in that order. Seeing blue-green-red means R/B is reversed.
+static void color_test(void) {
+    printf("color test: you should see RED, then GREEN, then BLUE\n");
+    lcd_fill(0x001F); sleep_ms(1500);  // BGR565: red is the low 5 bits
+    lcd_fill(0x07E0); sleep_ms(1500);  // green is the middle 6 bits
+    lcd_fill(0xF800); sleep_ms(1500);  // BGR565: blue is the high 5 bits
+    lcd_fill(0x0000);
 }
 
 // Init sequence taken from the stock Sprig firmware (sprig_hal ST7735_TFT.h),
@@ -548,7 +559,7 @@ static void rom_error_screen(void) {
     lcd_begin_frame();
     for (int y = 0; y < SCREEN_H; ++y) {
         for (int x = 0; x < SCREEN_W; ++x) {
-            uint16_t c = (x < 53) ? 0xF800 : (x < 107) ? 0x07E0 : 0x001F;
+            uint16_t c = (x < 53) ? 0x001F : (x < 107) ? 0x07E0 : 0xF800; /* BGR565 R|G|B */
             const uint8_t px[2] = {(uint8_t)(c >> 8), (uint8_t)c};
             spi_write_blocking(TFT_SPI, px, 2);
         }
@@ -610,6 +621,9 @@ int main() {
 
     lcd_init();
     lcd_fill(P(0x0000));  // black
+#if SPRIG_COLOR_TEST
+    color_test();
+#endif
     audio_init();
 
     lcd_begin_frame();  // window must be open before the first scanline lands
