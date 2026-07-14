@@ -4,12 +4,18 @@
 
 ![sprigNES running Super Mario Bros. on a Hack Club Sprig](docs/sprig-mario.png)
 
+> *The Super Mario Bros. cartridge shown above was dumped from an original
+> copy I own. sprigNES ships with **no games** — dump cartridges you own or use
+> homebrew. Please don't pirate; support the people who make games.*
+
 sprigNES is custom firmware that runs NES games on the Sprig's exact hardware —
 160×128 screen, its buttons, its speaker — with no hardware modification. A
 one-click Windows flasher lets you put any `.nes` ROM on the board; no
 toolchain, drivers, or command line required.
 
 ## For players — flashing a game
+
+![The SprigNESFlasher app](docs/sprig-flasher.png)
 
 1. Download **`SprigNESFlasher.exe`** from the
    [latest release](../../releases/latest).
