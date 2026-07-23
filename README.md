@@ -91,3 +91,5 @@ Pin map, ST7735 init, and button order were taken from the stock
 SprigNES is licensed under the **GNU GPL v3** (see [LICENSE](LICENSE)), inherited
 from InfoNES/pico-infones. This is a fan project and is not affiliated with or
 endorsed by Hack Club or Nintendo.
+
+Enjoy !
