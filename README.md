@@ -92,4 +92,4 @@ SprigNES is licensed under the **GNU GPL v3** (see [LICENSE](LICENSE)), inherite
 from InfoNES/pico-infones. This is a fan project and is not affiliated with or
 endorsed by Hack Club or Nintendo.
 
-Enjoy ! 🙂
+Enjoy ! (:
