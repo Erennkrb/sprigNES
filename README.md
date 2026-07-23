@@ -85,8 +85,7 @@ Pin map, ST7735 init, and button order were taken from the stock
 - **InfoNES** by Jay Kumogata and the InfoNES Project (NES core).
 - **pico-infones** by [Shuichi Takano](https://github.com/shuichitakano/pico-infones)
   (the RP2040 port this core is vendored from).
-- **Sprig** hardware and stock firmware by [Hack Club](https://github.com/hackclub/sprig).
-- **Claude** Help with Distributing on GitHub.
+- **Sprig** hardware and stock firmware by [Hack Club](https://github.com/hackclub/sprig)..
 
 SprigNES is licensed under the **GNU GPL v3** (see [LICENSE](LICENSE)), inherited
 from InfoNES/pico-infones. This is a fan project and is not affiliated with or
